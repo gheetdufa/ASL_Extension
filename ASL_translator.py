@@ -2,7 +2,7 @@ import pickle
 import cv2
 import mediapipe as mp
 import numpy as np
-import requests
+import pyautogui
 import warnings
 
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
@@ -19,8 +19,6 @@ hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.3, mi
 
 labels_dict = {i: chr(65 + i) for i in range(26)}
 labels_dict.update({26: 'Space', 27: 'Back'})
-
-server_url = 'http://127.0.0.1:5000/predict'
 
 while True:
     ret, frame = cap.read()
@@ -73,8 +71,13 @@ while True:
             cv2.putText(frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3, cv2.LINE_AA)
             print(predicted_character)
 
-            # Send the recognized character to the Flask server
-            requests.post(server_url, json={'character': predicted_character})
+            # Type the recognized character
+            if predicted_character == 'Space':
+                pyautogui.press('space')
+            elif predicted_character == 'Back':
+                pyautogui.press('backspace')
+            else:
+                pyautogui.typewrite(predicted_character)
 
     cv2.imshow('frame', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
