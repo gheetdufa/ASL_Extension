@@ -4,6 +4,8 @@ import mediapipe as mp
 import numpy as np
 import pyautogui
 import warnings
+import time
+from collections import Counter
 
 warnings.filterwarnings("ignore", category=UserWarning, module="google.protobuf")
 model_dict = pickle.load(open('./model.p', 'rb'))
@@ -19,6 +21,10 @@ hands = mp_hands.Hands(static_image_mode=False, min_detection_confidence=0.3, mi
 
 labels_dict = {i: chr(65 + i) for i in range(26)}
 labels_dict.update({26: 'Space', 27: 'Back'})
+
+prediction_window = 1.0  # time window in seconds to accumulate predictions
+start_time = time.time()
+predictions = []
 
 while True:
     ret, frame = cap.read()
@@ -61,6 +67,7 @@ while True:
         if len(data_aux) == 42:  # Ensure complete feature set before prediction
             prediction = model.predict([np.asarray(data_aux)])
             predicted_character = labels_dict[int(prediction[0])]
+            predictions.append(predicted_character)
 
             x1 = int(min(x_) * W) - 10
             y1 = int(min(y_) * H) - 10
@@ -71,15 +78,27 @@ while True:
             cv2.putText(frame, predicted_character, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 1.3, (0, 0, 0), 3, cv2.LINE_AA)
             print(predicted_character)
 
-            # Type the recognized character
-            if predicted_character == 'Space':
+    cv2.imshow('frame', frame)
+    
+    # Check if the prediction window time has elapsed
+    if time.time() - start_time >= prediction_window:
+        if predictions:
+            # Find the most common prediction
+            most_common_prediction = Counter(predictions).most_common(1)[0][0]
+            print(f"Most common prediction: {most_common_prediction}")
+            
+            # Type the most common recognized character
+            if most_common_prediction == 'Space':
                 pyautogui.press('space')
-            elif predicted_character == 'Back':
+            elif most_common_prediction == 'Back':
                 pyautogui.press('backspace')
             else:
-                pyautogui.typewrite(predicted_character)
+                pyautogui.typewrite(most_common_prediction)
+        
+        # Reset the prediction window
+        start_time = time.time()
+        predictions = []
 
-    cv2.imshow('frame', frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
